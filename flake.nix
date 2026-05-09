@@ -151,6 +151,55 @@
           (cd $out/KDK_26.4.1_25E253.kdk && pbzx -n $NIX_BUILD_TOP/KDK_SDK.pkg/Payload | cpio -i)
         '';
 
+        ctftools = pkgs.stdenv.mkDerivation {
+          pname = "ctftools";
+          version = "413";
+          src = inputs.dtrace-src;
+          buildInputs = [ pkgs.zlib ];
+          buildPhase = ''
+            DTRACE=$(pwd)
+            CFLAGS="-w -I$DTRACE/tools/ctfconvert -I$DTRACE/lib/libctf/common -I$DTRACE/lib/libdwarf -I$DTRACE/lib/libelf -I$DTRACE/include -I$DTRACE/compat/opensolaris -I$DTRACE/compat/opensolaris/sys -I$DTRACE/lib/libdwarf/cmplrs -include $DTRACE/compat/opensolaris/darwin_shim.h -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types"
+            CXXFLAGS="$CFLAGS -std=c++17 -I$DTRACE/include/llvm-ADT -I$DTRACE/include/llvm-Support"
+
+            mkdir -p obj
+            echo "Building libelf..."
+            for f in $DTRACE/lib/libelf/*.c; do
+              cc $CFLAGS -c "$f" -o "obj/elf_$(basename $f .c).o"
+            done
+            echo "Building libdwarf..."
+            for f in $DTRACE/lib/libdwarf/*.c; do
+              case $(basename $f) in pro_*) continue;; esac
+              cc $CFLAGS -c "$f" -o "obj/dwarf_$(basename $f .c).o"
+            done
+            echo "Building libctf..."
+            for f in $DTRACE/lib/libctf/common/*.c; do
+              cc $CFLAGS -c "$f" -o "obj/ctflib_$(basename $f .c).o"
+            done
+            cc $CFLAGS -c "$DTRACE/compat/opensolaris/darwin_shim.c" -o obj/darwin_shim.o
+            echo "Building ctf tools (C)..."
+            for f in $DTRACE/tools/ctfconvert/*.c; do
+              cc $CFLAGS -c "$f" -o "obj/tool_$(basename $f .c).o"
+            done
+            echo "Building ctf tools (C++)..."
+            for f in $DTRACE/tools/ctfconvert/*.cpp; do
+              c++ $CXXFLAGS -c "$f" -o "obj/tool_$(basename $f .cpp).o"
+            done
+
+            echo "Linking..."
+            cd obj
+            LIB_OBJS="$(ls elf_*.o dwarf_*.o ctflib_*.o darwin_shim.o)"
+            SHARED="$(ls tool_*.o | grep -v tool_ctfconvert.o | grep -v tool_ctfmerge.o | grep -v tool_dump.o | grep -v tool_compare.o)"
+            cc $LIB_OBJS $SHARED tool_ctfconvert.o -lz -lc++ -o ctfconvert
+            cc $LIB_OBJS $SHARED tool_ctfmerge.o   -lz -lc++ -o ctfmerge
+            cc $LIB_OBJS $SHARED tool_dump.o       -lz -lc++ -o ctfdump
+            echo "Done!"
+          '';
+          installPhase = ''
+            mkdir -p $out/bin
+            cp ctfconvert ctfmerge ctfdump $out/bin/
+          '';
+        };
+
         mkXnu = { arch, machine, label, kernelConfig ? "DEVELOPMENT" }: let
           buildTools = with pkgs; [
             jq git cmake ninja
@@ -261,14 +310,12 @@
             # Marker so build.sh's libsystem_headers check is satisfied
             mkdir -p fakeroot/System/Library/Frameworks/System.framework
 
-            # ctftools stubs — CTF is debug info, not required for a working kernel.
-            for tool in ctfconvert ctfmerge ctfdump; do
-              cat > fakeroot/usr/local/bin/$tool <<'EOF'
-            #!/bin/sh
-            exit 0
-            EOF
-              chmod +x fakeroot/usr/local/bin/$tool
-            done
+            # CTF tools — built from Apple's dtrace source + ctf_insert from cctools
+            cp ${ctftools}/bin/ctfconvert fakeroot/usr/local/bin/ctfconvert
+            cp ${ctftools}/bin/ctfmerge   fakeroot/usr/local/bin/ctfmerge
+            cp ${ctftools}/bin/ctfdump    fakeroot/usr/local/bin/ctfdump
+            cp ${pkgs.darwin.cctools}/bin/ctf_insert fakeroot/usr/local/bin/ctf_insert
+            chmod +x fakeroot/usr/local/bin/ctf*
           '';
 
           buildPhase = ''
@@ -281,13 +328,14 @@
             export ARCH_CONFIG=${arch}
             export MACHINE_CONFIG=${machine}
             export MACOS_VERSION=26.4
+            export RC_ProjectSourceVersion=12377.101.15
             export HOME=$TMPDIR
             TRACE=1 bash ./build.sh
           '';
 
           installPhase = ''
             mkdir -p $out
-            cp -R build/xnu.obj/* $out/ || true
+            cp -R build/xnu.obj/* $out/
           '';
         };
 
