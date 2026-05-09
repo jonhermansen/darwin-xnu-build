@@ -151,7 +151,7 @@
           (cd $out/KDK_26.4.1_25E253.kdk && pbzx -n $NIX_BUILD_TOP/KDK_SDK.pkg/Payload | cpio -i)
         '';
 
-        mkXnu = { arch, machine, label }: let
+        mkXnu = { arch, machine, label, kernelConfig ? "DEVELOPMENT" }: let
           buildTools = with pkgs; [
             jq git cmake ninja
             gnugrep gnused gawk gnupatch coreutils curl which findutils gzip pax rcodesign
@@ -167,14 +167,6 @@
 
           nativeBuildInputs = buildTools;
 
-          # Only what truly cannot be shimmed:
-          #   - /usr/bin/env: hardcoded in #!shebangs across many sources (would need patchShebangs)
-          #   - /usr/bin/xcodebuild: Apple binary; uses Mach IPC to find Xcode (hard to shim)
-          #   - license plist: read directly by xcodebuild
-          __impureHostDeps = [
-            "/usr/bin/env"
-          ];
-
           xnu                  = inputs.xnu-src;
           bootstrap_cmds       = inputs.bootstrap_cmds-src;
           dtrace               = inputs.dtrace-src;
@@ -189,8 +181,12 @@
               chmod -R u+w "./$s"
             done
 
+            # /usr/bin/env is the last impure host dep — replace globally across all sources.
+            find . -type f -not -path './.git/*' -print0 \
+              | xargs -0 sed -i 's|/usr/bin/env|${pkgs.coreutils}/bin/env|g'
+
             # Static map: rewrite every hardcoded /bin/* /usr/bin/* /usr/sbin/* in xnu's
-            # Makefiles to point at nixpkgs/store equivalents. Removes need for impure host deps.
+            # Makefiles to point at nixpkgs/store equivalents.
             sed -i \
               -e 's|/bin/cat|${pkgs.coreutils}/bin/cat|g' \
               -e 's|/bin/chmod|${pkgs.coreutils}/bin/chmod|g' \
@@ -281,6 +277,7 @@
             export NIX_LIBSYSTEM_PATH=${xcode}/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr
             unset SDKROOT NIX_CFLAGS_COMPILE NIX_LDFLAGS
             export EXTRA_PATH="${pkgs.lib.makeBinPath buildTools}"
+            export KERNEL_CONFIG=${kernelConfig}
             export ARCH_CONFIG=${arch}
             export MACHINE_CONFIG=${machine}
             export MACOS_VERSION=26.4

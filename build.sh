@@ -65,7 +65,7 @@ function setup_xcode_toolchain() {
         HOMEBREW_PATHS=":/usr/local/bin:/usr/local/sbin"
     fi
 
-    export PATH="${XCODE_TOOLCHAIN}:${XCODE_USR_BIN}:${SYSTEM_PATHS}${HOMEBREW_PATHS}${EXTRA_PATH:+:${EXTRA_PATH}}"
+    export PATH="${XCODE_TOOLCHAIN}:${XCODE_USR_BIN}:${EXTRA_PATH:+${EXTRA_PATH}:}${SYSTEM_PATHS}${HOMEBREW_PATHS}"
 
     # Explicitly set compiler variables to Xcode's tools
     export CC="$(xcrun -find clang)"
