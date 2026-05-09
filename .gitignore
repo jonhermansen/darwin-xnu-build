@@ -42,6 +42,12 @@
 *.idb
 *.pdb
 
+# Nix
+result
+
+# Logs
+*.log
+
 # build files
 .DS_Store
 venv

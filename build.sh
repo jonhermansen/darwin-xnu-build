@@ -39,8 +39,7 @@ function warning() {
 # This protects against Homebrew's GNU coreutils or LLVM interfering with the build
 function setup_xcode_toolchain() {
     # Get Xcode developer directory
-    local DEVELOPER_DIR
-    DEVELOPER_DIR="$(xcode-select -p 2>/dev/null || true)"
+    local DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p 2>/dev/null || true)}"
 
     if [ -z "${DEVELOPER_DIR}" ] || [ ! -d "${DEVELOPER_DIR}" ]; then
         error "Xcode Command Line Tools not found. Please run install_deps first."
@@ -66,7 +65,7 @@ function setup_xcode_toolchain() {
         HOMEBREW_PATHS=":/usr/local/bin:/usr/local/sbin"
     fi
 
-    export PATH="${XCODE_TOOLCHAIN}:${XCODE_USR_BIN}:${SYSTEM_PATHS}${HOMEBREW_PATHS}"
+    export PATH="${XCODE_TOOLCHAIN}:${XCODE_USR_BIN}:${SYSTEM_PATHS}${HOMEBREW_PATHS}${EXTRA_PATH:+:${EXTRA_PATH}}"
 
     # Explicitly set compiler variables to Xcode's tools
     export CC="$(xcrun -find clang)"
@@ -79,7 +78,7 @@ function setup_xcode_toolchain() {
 
     # Verify we're using Xcode's clang, not Homebrew's
     local CLANG_PATH
-    CLANG_PATH="$(which clang)"
+    CLANG_PATH="$(command -v clang)"
     if [[ ! "${CLANG_PATH}" =~ ^"${DEVELOPER_DIR}".* ]]; then
         warning "clang is not from Xcode: ${CLANG_PATH}"
         warning "This may cause build failures. Check your PATH."
@@ -359,8 +358,8 @@ choose_xnu() {
         ;;
     '26.4')
         RELEASE_URL='https://raw.githubusercontent.com/apple-oss-distributions/distribution-macOS/macos-264/release.json'
-        KDK_NAME='Kernel Debug Kit 26.4 build 25E246'
-        KDKROOT='/Library/Developer/KDKs/KDK_26.4_25E246.kdk/'
+        KDK_NAME='Kernel Debug Kit 26.4.1 build 25E253'
+        KDKROOT="${KDKROOT:-/Library/Developer/KDKs/KDK_26.4.1_25E253.kdk/}"
         RC_DARWIN_KERNEL_VERSION='25.4.0'
         ;;
     *)
@@ -409,15 +408,15 @@ get_xnu() {
 patches() {
     running "🩹 Patching xnu files"
     # xnu headers patch
-    sed -i '' 's|^AVAILABILITY_PL="${SDKROOT}/${DRIVERKITROOT}|AVAILABILITY_PL="${FAKEROOT_DIR}|g' "${WORK_DIR}/xnu/bsd/sys/make_symbol_aliasing.sh"
+    sed -i 's|^AVAILABILITY_PL="${SDKROOT}/${DRIVERKITROOT}|AVAILABILITY_PL="${FAKEROOT_DIR}|g' "${WORK_DIR}/xnu/bsd/sys/make_symbol_aliasing.sh"
     # libsyscall patch
-    sed -i '' 's|^#include.*BSD.xcconfig.*||g' "${WORK_DIR}/xnu/libsyscall/Libsyscall.xcconfig"
+    sed -i 's|^#include.*BSD.xcconfig.*||g' "${WORK_DIR}/xnu/libsyscall/Libsyscall.xcconfig"
     # xnu build patch
-    sed -i '' 's|^LDFLAGS_KERNEL_SDK	= -L$(SDKROOT).*|LDFLAGS_KERNEL_SDK	= -L$(FAKEROOT_DIR)/usr/local/lib/kernel -lfirehose_kernel|g' "${WORK_DIR}/xnu/makedefs/MakeInc.def"
-    sed -i '' 's|^INCFLAGS_SDK	= -I$(SDKROOT)|INCFLAGS_SDK	= -I$(FAKEROOT_DIR)|g' "${WORK_DIR}/xnu/makedefs/MakeInc.def"
+    sed -i 's|^LDFLAGS_KERNEL_SDK	= -L$(SDKROOT).*|LDFLAGS_KERNEL_SDK	= -L$(FAKEROOT_DIR)/usr/local/lib/kernel -lfirehose_kernel|g' "${WORK_DIR}/xnu/makedefs/MakeInc.def"
+    sed -i 's|^INCFLAGS_SDK	= -I$(SDKROOT)|INCFLAGS_SDK	= -I$(FAKEROOT_DIR)|g' "${WORK_DIR}/xnu/makedefs/MakeInc.def"
     # specify location of mig (bootstrap_cmds)
-    sed -i '' 's|export MIG := $(shell $(XCRUN) -sdk $(SDKROOT) -find mig)|export MIG := $(shell find $(FAKEROOT_DIR) -name "mig")|g' "${WORK_DIR}/xnu/makedefs/MakeInc.cmd"
-    sed -i '' 's|export MIGCOM := $(shell $(XCRUN) -sdk $(SDKROOT) -find migcom)|export MIGCOM := $(shell find $(FAKEROOT_DIR) -name "migcom")|g' "${WORK_DIR}/xnu/makedefs/MakeInc.cmd"
+    sed -i 's|export MIG := $(shell $(XCRUN) -sdk $(SDKROOT) -find mig)|export MIG := $(shell find $(FAKEROOT_DIR) -name "mig")|g' "${WORK_DIR}/xnu/makedefs/MakeInc.cmd"
+    sed -i 's|export MIGCOM := $(shell $(XCRUN) -sdk $(SDKROOT) -find migcom)|export MIGCOM := $(shell find $(FAKEROOT_DIR) -name "migcom")|g' "${WORK_DIR}/xnu/makedefs/MakeInc.cmd"
     # Don't apply patches when building CodeQL database to keep code pure
     if [ "$CODEQL" -eq "0" ]; then
        PATCH_DIR=""
@@ -443,12 +442,11 @@ patches() {
             ;;
         esac
         cd "${WORK_DIR}/xnu"
-        if compgen -G "${PATCH_DIR}"'/*.sh' > /dev/null; then
-            for SCRIPT in "${PATCH_DIR}"/*.sh; do
-                running "Running script: ${SCRIPT}"
-                bash "${SCRIPT}"
-            done
-        fi
+        for SCRIPT in "${PATCH_DIR}"/*.sh; do
+            [ -e "$SCRIPT" ] || continue
+            running "Running script: ${SCRIPT}"
+            bash "${SCRIPT}"
+        done
         for PATCH in "${PATCH_DIR}"/*.patch; do
             if git apply --check "$PATCH" 2> /dev/null; then
                 running "Applying patch: ${PATCH}"
@@ -472,9 +470,9 @@ build_bootstrap_cmds() {
         OBJROOT="${BUILD_DIR}/bootstrap_cmds.obj"
         SYMROOT="${BUILD_DIR}/bootstrap_cmds.sym"
 
-        sed -i '' 's|-o root -g wheel||g' "${WORK_DIR}/bootstrap_cmds/xcodescripts/install-mig.sh"
+        sed -i 's|-o root -g wheel||g' "${WORK_DIR}/bootstrap_cmds/xcodescripts/install-mig.sh"
 
-        CLONED_BOOTSTRAP_VERSION=$(cd "${WORK_DIR}/bootstrap_cmds"; git describe --always 2>/dev/null)
+        CLONED_BOOTSTRAP_VERSION=$(cd "${WORK_DIR}/bootstrap_cmds"; git describe --always 2>/dev/null || echo unknown)
 
         cd "${SRCROOT}"
         env LD="$(xcrun -find clang)" LDPLUSPLUS="$(xcrun -find clang++)" \
@@ -537,7 +535,7 @@ libsystem_headers() {
             LIBSYSTEM_VERSION=$(curl -s $RELEASE_URL | jq -r '.projects[] | select(.project=="Libsystem") | .tag')
             git clone --branch "${LIBSYSTEM_VERSION}" https://github.com/apple-oss-distributions/Libsystem.git "${WORK_DIR}/Libsystem"
         fi
-        sed -i '' 's|^#include.*BSD.xcconfig.*||g' "${WORK_DIR}/Libsystem/Libsystem.xcconfig"
+        sed -i 's|^#include.*BSD.xcconfig.*||g' "${WORK_DIR}/Libsystem/Libsystem.xcconfig"
         SRCROOT="${WORK_DIR}/Libsystem"
         OBJROOT="${BUILD_DIR}/Libsystem.obj"
         SYMROOT="${BUILD_DIR}/Libsystem.sym"
@@ -587,8 +585,8 @@ build_libdispatch() {
         OBJROOT="${BUILD_DIR}/libfirehose_kernel.obj"
         SYMROOT="${BUILD_DIR}/libfirehose_kernel.sym"
         # libfirehose_kernel patch
-        sed -i '' 's|$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders|$(FAKEROOT_DIR)/System/Library/Frameworks/Kernel.framework/PrivateHeaders|g' "${SRCROOT}/xcodeconfig/libfirehose_kernel.xcconfig"
-        sed -i '' 's|$(SDKROOT)/usr/local/include|$(FAKEROOT_DIR)/usr/local/include|g' "${SRCROOT}/xcodeconfig/libfirehose_kernel.xcconfig"
+        sed -i 's|$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders|$(FAKEROOT_DIR)/System/Library/Frameworks/Kernel.framework/PrivateHeaders|g' "${SRCROOT}/xcodeconfig/libfirehose_kernel.xcconfig"
+        sed -i 's|$(SDKROOT)/usr/local/include|$(FAKEROOT_DIR)/usr/local/include|g' "${SRCROOT}/xcodeconfig/libfirehose_kernel.xcconfig"
         cd "${SRCROOT}"
         env LD="$(xcrun -find clang)" LDPLUSPLUS="$(xcrun -find clang++)" \
             xcodebuild install -target libfirehose_kernel -sdk macosx ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e" OBJROOT="${OBJROOT}" SYMROOT="${SYMROOT}" DSTROOT="${DSTROOT}" FAKEROOT_DIR="${FAKEROOT_DIR}"
@@ -750,6 +748,45 @@ build_kc() {
     fi
 }
 
+populate_fakeroot_post_xnu_headers() {
+    # Re-stage SDK userspace headers. xnu_headers installs files with mode 0444; need to
+    # make them writable before cp can overwrite.
+    chmod -R u+w "${FAKEROOT_DIR}/usr"
+    cp -Rf "${NIX_LIBSYSTEM_PATH}/." "${FAKEROOT_DIR}/usr/"
+    chmod -R u+w "${FAKEROOT_DIR}/usr"
+}
+
+build_libfirehose_kernel() {
+    # libfirehose_kernel.a is a single-file static lib (firehose_buffer.c) — flags from
+    # libdispatch's xcodeconfig/libfirehose_kernel.xcconfig.
+    running "📦 Building libfirehose_kernel.a from libdispatch source"
+    local SRCROOT="${WORK_DIR}/libdispatch"
+    local CLANG="${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
+    local OBJ="${BUILD_DIR}/libfirehose_kernel.obj"
+    mkdir -p "${OBJ}" "${FAKEROOT_DIR}/usr/local/lib/kernel"
+    case "${ARCH_CONFIG}" in
+        ARM64)  local LFK_ARCH=arm64e ;;
+        X86_64) local LFK_ARCH=x86_64 ;;
+        *) error "unknown ARCH_CONFIG=${ARCH_CONFIG}"; return 1 ;;
+    esac
+    "${CLANG}" -arch ${LFK_ARCH} -mkernel -nostdinc -Wno-packed \
+        -DKERNEL=1 -DDISPATCH_USE_DTRACE=0 \
+        -DOS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY=1 \
+        -DOS_ATOMIC_CONFIG_STARVATION_FREE_ONLY=0 \
+        -I"${SRCROOT}" -I"${SRCROOT}/private" -I"${SRCROOT}/src" -I"${SRCROOT}/os" \
+        -I"${FAKEROOT_DIR}/System/Library/Frameworks/Kernel.framework/PrivateHeaders" \
+        -I"${FAKEROOT_DIR}/System/Library/Frameworks/Kernel.framework/Headers" \
+        -I"${FAKEROOT_DIR}/usr/local/include/os" \
+        -I"${FAKEROOT_DIR}/usr/local/include/firehose" \
+        -I"${DEVELOPER_DIR}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" \
+        -I"${FAKEROOT_DIR}/usr/include" \
+        -c "${SRCROOT}/src/firehose/firehose_buffer.c" \
+        -o "${OBJ}/firehose_buffer.o"
+    "${DEVELOPER_DIR}/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar" \
+        rcs "${FAKEROOT_DIR}/usr/local/lib/kernel/libfirehose_kernel.a" \
+        "${OBJ}/firehose_buffer.o"
+}
+
 main() {
     # Parse arguments
     while test $# -gt 0; do
@@ -774,20 +811,21 @@ main() {
             ;;
         esac
     done
-    install_deps
+    # install_deps  # skipped: nix-managed system, deps satisfied manually
     setup_xcode_toolchain
     choose_xnu
     get_xnu
     patches
     venv
-    build_bootstrap_cmds
-    build_dtrace
-    build_availabilityversions
+    # build_bootstrap_cmds  # provided by pkgs.darwin.bootstrap_cmds (pre-staged in fakeroot)
+    # build_dtrace          # provided by stub (CTF disabled)
+    # build_availabilityversions  # provided by pkgs.darwin.AvailabilityVersions
     xnu_headers
-    libsystem_headers
-    libsyscall_headers
-    build_libplatform
-    build_libdispatch
+    populate_fakeroot_post_xnu_headers
+    build_libfirehose_kernel    # compile single-file libfirehose_kernel.a directly with clang
+    # libsystem_headers     # provided by pkgs.darwin.libSystem
+    # libsyscall_headers    # ditto
+    # build_libplatform     # libplatform private inline headers (not yet provided)
     if [ "$BUILDLIB" -ne "0" ]; then
         build_xnu_library
         echo "  🎉 XNU Library Build Done!"

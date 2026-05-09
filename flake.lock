@@ -1,0 +1,187 @@
+{
+  "nodes": {
+    "AvailabilityVersions-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776386499,
+        "narHash": "sha256-v+ikUET6ByNEBRbPbl7ivqTJKJkZQDGG7Q20tIMt8pU=",
+        "owner": "apple-oss-distributions",
+        "repo": "AvailabilityVersions",
+        "rev": "149b1777f3e8c2133042d8e188f72e3adf6a7110",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "AvailabilityVersions-157.2",
+        "repo": "AvailabilityVersions",
+        "type": "github"
+      }
+    },
+    "Libsystem-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1760654151,
+        "narHash": "sha256-/NlSwPaoTVx+bl9hYsfz3C5MuLdqGv4vdAh0KDbDKmY=",
+        "owner": "apple-oss-distributions",
+        "repo": "Libsystem",
+        "rev": "c23b51183e46e613375dc7639fb4bf11fbf59ba8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "Libsystem-1356",
+        "repo": "Libsystem",
+        "type": "github"
+      }
+    },
+    "bootstrap_cmds-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1745982490,
+        "narHash": "sha256-6JG0sysgqLlgcpIOXfN+F0/gxpIIHZZ5et3gmDBoBGQ=",
+        "owner": "apple-oss-distributions",
+        "repo": "bootstrap_cmds",
+        "rev": "c71d2d72f48995baaea76148f61002e5299841de",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "bootstrap_cmds-138",
+        "repo": "bootstrap_cmds",
+        "type": "github"
+      }
+    },
+    "dtrace-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1760654134,
+        "narHash": "sha256-5HpH6Cg8vWWzOX5ADD//izKDvqGnzV05Giju8lmGeyA=",
+        "owner": "apple-oss-distributions",
+        "repo": "dtrace",
+        "rev": "4e57fe5c4dcf71e455817e7f26fc1f68e6eb4fe2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "dtrace-413",
+        "repo": "dtrace",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "libdispatch-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776386514,
+        "narHash": "sha256-1PHHUzPipwUdzk9uMHweG64J4EU4lixPApV7qwPBpWY=",
+        "owner": "apple-oss-distributions",
+        "repo": "libdispatch",
+        "rev": "701f4d1a24ae9c6863901bbbb22624b7d1b87321",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "libdispatch-1542.100.32",
+        "repo": "libdispatch",
+        "type": "github"
+      }
+    },
+    "libplatform-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776386515,
+        "narHash": "sha256-bghS+sClE2nygZMahh1udoMZmGvRSCKn+W4ywTi51Zw=",
+        "owner": "apple-oss-distributions",
+        "repo": "libplatform",
+        "rev": "2512ffd8bb5c6caff3c8ea83331ab8a0adc820c3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "libplatform-375.100.10",
+        "repo": "libplatform",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1777179511,
+        "narHash": "sha256-GCqyVuDsIavHaoFa1dGHAPGKkMbjMhexYN9wBZQNH8U=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e56e56311fc951877e3fda0dac432554ce2d21c5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "master",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "AvailabilityVersions-src": "AvailabilityVersions-src",
+        "Libsystem-src": "Libsystem-src",
+        "bootstrap_cmds-src": "bootstrap_cmds-src",
+        "dtrace-src": "dtrace-src",
+        "flake-utils": "flake-utils",
+        "libdispatch-src": "libdispatch-src",
+        "libplatform-src": "libplatform-src",
+        "nixpkgs": "nixpkgs",
+        "xnu-src": "xnu-src"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "xnu-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776386543,
+        "narHash": "sha256-TpT7j7jgcibaHd7cqGbyfDRO0XkjKJNf/tPrdnVVpUw=",
+        "owner": "apple-oss-distributions",
+        "repo": "xnu",
+        "rev": "5c306bec31e314fa4d8bbdafb2f6f5a6b7e7b291",
+        "type": "github"
+      },
+      "original": {
+        "owner": "apple-oss-distributions",
+        "ref": "xnu-12377.101.15",
+        "repo": "xnu",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
